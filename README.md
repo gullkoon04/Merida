@@ -1,6 +1,6 @@
 # Archery Club Ranking System
 
-FastAPI를 사용한 활쏘기 클럽 랭킹 시스템입니다.
+양궁부 랭킹 시스템입니다.
 
 ## 기능
 
