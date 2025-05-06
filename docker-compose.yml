@@ -1,0 +1,86 @@
+version: "3.8"
+services:
+  # 1) MySQL 데이터베이스
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      # 필수: 루트 비밀번호
+      MYSQL_ROOT_PASSWORD: rootpassword
+      # 생성할 기본 데이터베이스 이름
+      MYSQL_DATABASE: archery_club
+      # 애플리케이션 전용 계정
+      MYSQL_USER: merida
+      MYSQL_PASSWORD: merida_pw
+    volumes:
+      - db_data:/var/lib/mysql   # 데이터 영속성
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      # SQLAlchemy URL 예시 (aiomysql 드라이버)
+      DATABASE_URL: mysql+aiomysql://merida:merida_pw@db:3306/archery_club
+      MYSQL_USER: merida
+      MYSQL_PASSWORD: merida_pw
+      MYSQL_DATABASE: archery_club
+      
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - ./:/app:ro
+    working_dir: /app
+    expose:
+      - "8000"
+
+  web:
+    image: nginx:latest
+    restart: unless-stopped
+    volumes:
+      - ./static:/usr/share/nginx/html/static:ro
+      - ./nginx/web/nginx.conf:/etc/nginx/nginx.conf:ro
+    expose:
+      - "80"
+
+  proxy:
+    image: nginx:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot-webroot:/var/www/certbot # 챌린지용 웹루트
+      - certbot-etc:/etc/letsencrypt  # 인증서 저장소
+    depends_on:
+      - api
+      - web
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    restart: unless-stopped
+    depends_on:
+      - proxy
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - ./certbot-webroot:/var/www/certbot
+    entrypoint: ["/bin/sh", "-c"]           
+    command:
+      - >
+        certbot certonly --non-interactive --agree-tos \
+          --email parkjaeyoung04@gmail.com \
+          --webroot --webroot-path=/var/www/certbot \
+          -d snuarchery.co.kr -d www.snuarchery.co.kr && \
+        while true; do \
+          certbot renew --non-interactive --agree-tos \
+            --webroot --webroot-path=/var/www/certbot \
+            --quiet --deploy-hook "nginx -s reload"; \
+          sleep 12h; \
+        done
+
+volumes:
+  db_data:
+  certbot-etc:
+  

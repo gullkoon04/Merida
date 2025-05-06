@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+databases       # 필요하다면
+aiomysql        # MySQL 쓴다면
+pymysql         # pymysql 쓰는 경우
+Jinja2
+python-multipart
+cryptography
